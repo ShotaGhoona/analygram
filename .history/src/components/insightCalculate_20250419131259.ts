@@ -1,0 +1,243 @@
+type ContentType = {
+  likes?: number;
+  comments?: number;
+  shares?: number;
+  saves?: number;
+  reach?: number;
+};
+
+type DailyData = {
+  date: string;
+  followers: number;
+  follows: number;
+  impressions: number;
+  ad?: ContentType;
+  feed?: ContentType;
+  story?: ContentType;
+  reel?: ContentType;
+  carousel?: ContentType;
+  reach_total?: number;
+  profile_visits?: number;
+  website_taps?: number;
+};
+
+export const calculateTotalEngagement = (data: DailyData) => {
+  const calculateTotal = (metric: keyof ContentType) => {
+    return (
+      (data.ad?.[metric] || 0) +
+      (data.feed?.[metric] || 0) +
+      (data.story?.[metric] || 0) +
+      (data.reel?.[metric] || 0) +
+      (data.carousel?.[metric] || 0)
+    );
+  };
+
+  return {
+    likes: calculateTotal('likes'),
+    comments: calculateTotal('comments'),
+    shares: calculateTotal('shares'),
+    saves: calculateTotal('saves'),
+  };
+};
+
+export const aggregateMonthlyData = (dailyData: DailyData[]) => {
+  const monthlyData = dailyData.reduce<Record<string, any>>((acc, curr) => {
+    const date = new Date(curr.date);
+    const yearMonth = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+    
+    const engagement = calculateTotalEngagement(curr);
+    
+    if (!acc[yearMonth]) {
+      acc[yearMonth] = {
+        year_month: yearMonth,
+        followers: curr.followers,
+        new_followers: 0, // 後で計算
+        reach: curr.reach_total || 0,
+        impressions: curr.impressions || 0,
+        profile_views: curr.profile_visits || 0,
+        website_taps: curr.website_taps || 0,
+        likes: engagement.likes,
+        comments: engagement.comments,
+        shares: engagement.shares,
+        saves: engagement.saves,
+      };
+    } else {
+      acc[yearMonth].followers = Math.max(acc[yearMonth].followers, curr.followers);
+      acc[yearMonth].reach += curr.reach_total || 0;
+      acc[yearMonth].impressions += curr.impressions || 0;
+      acc[yearMonth].profile_views += curr.profile_visits || 0;
+      acc[yearMonth].website_taps += curr.website_taps || 0;
+      acc[yearMonth].likes += engagement.likes;
+      acc[yearMonth].comments += engagement.comments;
+      acc[yearMonth].shares += engagement.shares;
+      acc[yearMonth].saves += engagement.saves;
+    }
+    
+    return acc;
+  }, {});
+
+  // 新規フォロワー数を計算
+  const monthlyArray = Object.values(monthlyData);
+  monthlyArray.sort((a: any, b: any) => b.year_month.localeCompare(a.year_month));
+
+  for (let i = 0; i < monthlyArray.length; i++) {
+    const nextMonth = monthlyArray[i + 1];
+    if (nextMonth) {
+      monthlyArray[i].new_followers = monthlyArray[i].followers - nextMonth.followers;
+    } else {
+      monthlyArray[i].new_followers = monthlyArray[i].followers;
+    }
+  }
+
+  return monthlyArray;
+};
+
+export const aggregateFollowData = (dailyData: DailyData[]) => {
+  // 月ごとにデータをグループ化
+  const monthlyData = dailyData.reduce<Record<string, { followers: number; follows: number }>>((acc, curr) => {
+    const date = new Date(curr.date);
+    const yearMonth = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+    
+    if (!acc[yearMonth]) {
+      acc[yearMonth] = {
+        followers: curr.followers || 0,
+        follows: curr.follows || 0,
+      };
+    } else {
+      // その月の最大値を使用
+      acc[yearMonth].followers = Math.max(acc[yearMonth].followers, curr.followers || 0);
+      acc[yearMonth].follows = Math.max(acc[yearMonth].follows, curr.follows || 0);
+    }
+    
+    return acc;
+  }, {});
+
+  // グラフ用のデータ配列を作成
+  return Object.entries(monthlyData)
+    .map(([yearMonth, data]) => ({
+      yearMonth,
+      followers: data.followers,
+      follows: data.follows,
+    }))
+    .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
+};
+
+export const aggregateFeedData = (dailyData: DailyData[]) => {
+  const monthlyData = dailyData.reduce<Record<string, any>>((acc, curr) => {
+    const date = new Date(curr.date);
+    const yearMonth = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+    
+    if (!acc[yearMonth]) {
+      acc[yearMonth] = {
+        yearMonth,
+        feed_reach: (curr.feed?.reach || 0),
+        feed_engagement: (
+          (curr.feed?.likes || 0) +
+          (curr.feed?.comments || 0) +
+          (curr.feed?.shares || 0) +
+          (curr.feed?.saves || 0)
+        ),
+        feed_likes: (curr.feed?.likes || 0),
+        feed_comments: (curr.feed?.comments || 0),
+        feed_shares: (curr.feed?.shares || 0),
+        feed_saves: (curr.feed?.saves || 0),
+      };
+    } else {
+      acc[yearMonth].feed_reach += (curr.feed?.reach || 0);
+      acc[yearMonth].feed_engagement += (
+        (curr.feed?.likes || 0) +
+        (curr.feed?.comments || 0) +
+        (curr.feed?.shares || 0) +
+        (curr.feed?.saves || 0)
+      );
+      acc[yearMonth].feed_likes += (curr.feed?.likes || 0);
+      acc[yearMonth].feed_comments += (curr.feed?.comments || 0);
+      acc[yearMonth].feed_shares += (curr.feed?.shares || 0);
+      acc[yearMonth].feed_saves += (curr.feed?.saves || 0);
+    }
+    
+    return acc;
+  }, {});
+
+  return Object.values(monthlyData).sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
+};
+
+export const aggregateReelData = (dailyData: DailyData[]) => {
+  const monthlyData = dailyData.reduce<Record<string, any>>((acc, curr) => {
+    const date = new Date(curr.date);
+    const yearMonth = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+    
+    if (!acc[yearMonth]) {
+      acc[yearMonth] = {
+        yearMonth,
+        reel_reach: (curr.reel?.reach || 0),
+        reel_engagement: (
+          (curr.reel?.likes || 0) +
+          (curr.reel?.comments || 0) +
+          (curr.reel?.shares || 0) +
+          (curr.reel?.saves || 0)
+        ),
+        reel_likes: (curr.reel?.likes || 0),
+        reel_comments: (curr.reel?.comments || 0),
+        reel_shares: (curr.reel?.shares || 0),
+        reel_saves: (curr.reel?.saves || 0),
+      };
+    } else {
+      acc[yearMonth].reel_reach += (curr.reel?.reach || 0);
+      acc[yearMonth].reel_engagement += (
+        (curr.reel?.likes || 0) +
+        (curr.reel?.comments || 0) +
+        (curr.reel?.shares || 0) +
+        (curr.reel?.saves || 0)
+      );
+      acc[yearMonth].reel_likes += (curr.reel?.likes || 0);
+      acc[yearMonth].reel_comments += (curr.reel?.comments || 0);
+      acc[yearMonth].reel_shares += (curr.reel?.shares || 0);
+      acc[yearMonth].reel_saves += (curr.reel?.saves || 0);
+    }
+    
+    return acc;
+  }, {});
+
+  return Object.values(monthlyData).sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
+};
+
+export const aggregateStoryData = (dailyData: DailyData[]) => {
+  const monthlyData = dailyData.reduce<Record<string, any>>((acc, curr) => {
+    const date = new Date(curr.date);
+    const yearMonth = `${date.getFullYear()}年${date.getMonth() + 1}月`;
+    
+    if (!acc[yearMonth]) {
+      acc[yearMonth] = {
+        yearMonth,
+        story_reach: (curr.story?.reach || 0),
+        story_engagement: (
+          (curr.story?.likes || 0) +
+          (curr.story?.comments || 0) +
+          (curr.story?.shares || 0) +
+          (curr.story?.saves || 0)
+        ),
+        story_likes: (curr.story?.likes || 0),
+        story_comments: (curr.story?.comments || 0),
+        story_shares: (curr.story?.shares || 0),
+        story_saves: (curr.story?.saves || 0),
+      };
+    } else {
+      acc[yearMonth].story_reach += (curr.story?.reach || 0);
+      acc[yearMonth].story_engagement += (
+        (curr.story?.likes || 0) +
+        (curr.story?.comments || 0) +
+        (curr.story?.shares || 0) +
+        (curr.story?.saves || 0)
+      );
+      acc[yearMonth].story_likes += (curr.story?.likes || 0);
+      acc[yearMonth].story_comments += (curr.story?.comments || 0);
+      acc[yearMonth].story_shares += (curr.story?.shares || 0);
+      acc[yearMonth].story_saves += (curr.story?.saves || 0);
+    }
+    
+    return acc;
+  }, {});
+
+  return Object.values(monthlyData).sort((a, b) => b.yearMonth.localeCompare(a.yearMonth));
+}; 

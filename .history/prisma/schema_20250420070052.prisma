@@ -1,0 +1,74 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id              String           @id @default(uuid())
+  name            String
+  igId            String   @unique           
+  longToken       String
+  memo            String?
+  accountInsights AccountInsight[]
+  postInsights    PostInsight[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("companies")
+}
+
+model AccountInsight {
+  id              String   @id @default(uuid())
+  date            DateTime
+  followers       Int
+  follows         Int
+  reachTotal      Int
+  impressions     Int
+  profileVisits   Int
+  webTaps         Int
+  likesTotal      Int
+  commentsTotal   Int
+  savesTotal      Int
+  sharesTotal     Int
+  company         Company  @relation(fields: [companyId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyId, igId, date])
+  @@map("account_insights")
+}
+
+model PostInsight {
+  id              String   @id
+  timestamp       DateTime
+  mediaType       String
+  mediaProductType String
+  caption         String?
+  mediaUrl        String
+  thumbnailUrl    String?
+  permalink       String
+  impressions     Int
+  reach           Int
+  likes           Int
+  comments        Int
+  saved           Int
+  shares          Int
+  plays           Int?     // For Reels
+  replies         Int?     // For Stories
+  engagement      Int
+  company         Company  @relation(fields: [companyId], references: [id])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("post_insights")
+}

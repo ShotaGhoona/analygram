@@ -1,0 +1,62 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import CompanyDropdown from '../common/CompanyDropdown';
+
+type Company = {
+  id: string;
+  name: string;
+  igId: string;
+};
+
+export default function Header() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState("アヤホーム/滋賀/分譲地/新築戸建/注文住宅");
+  const [companies, setCompanies] = useState<Company[]>([]);
+
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const response = await fetch('/api/companies');
+        const data = await response.json();
+        setCompanies(data);
+      } catch (error) {
+        console.error('Error fetching companies:', error);
+      }
+    };
+
+    fetchCompanies();
+  }, []);
+
+  const handleCompanySelect = (company: Company) => {
+    setSelectedCompany(company.name);
+  };
+
+  return (
+    <header className="pl-[250px] bg-white shadow">
+      <div className="w-full px-4 py-4">
+        <div className="flex items-center">
+          <h1 className="text-xl font-bold">Instagram分析</h1>
+          <div className="flex items-center ml-auto relative">
+            <div 
+              className="flex items-center cursor-pointer"
+              onClick={() => setIsOpen(!isOpen)}
+            >
+              <div className="mr-2 max-w-[300px] truncate">
+                {selectedCompany}
+              </div>
+              <div className="w-8 h-8 bg-gray-200 rounded-full"></div>
+            </div>
+            
+            <CompanyDropdown
+              isOpen={isOpen}
+              companies={companies}
+              onSelect={handleCompanySelect}
+              onClose={() => setIsOpen(false)}
+            />
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+} 

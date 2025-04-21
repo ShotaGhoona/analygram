@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Instagram効果測定アプリ 要件定義書（Version 0.9 Draft）
 
-## Getting Started
+---
 
-First, run the development server:
+### 1. 背景・目的
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **課題**
+    - Instagram Insights は管理画面の UI が複雑で、過去推移や複数アカウントの横串比較が難しい。
+- **目的**
+    - ① フォロワー数の増減トレンドと ② エンゲージメント率（Impression / いいね・コメント・保存）の推移を"一目で"把握し、運用改善サイクルを高速化する。
+- **スコープ**（MVP）
+    - Instagam Graph API からデータを自動取得し、**日次アカウントインサイト**・**月次ポストインサイト**を可視化するところまで。
+    - 認証・権限制御は単一ユーザー前提（内部利用）。
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 2. KPI／成功指標
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| カテゴリ | 指標 | 詳細 | 可視化粒度 |
+| --- | --- | --- | --- |
+| 主要KPI | フォロワー数増減 | 前日／前月差分 | 日次・月次 |
+| 主要KPI | エンゲージメント率 | (いいね+コメント+保存) ÷ インプレッション | 日次・月次 |
+| 補助KPI | リーチ・インプレッション | アカウント単位合計 | 日次・月次 |
+| 補助KPI | プロフィール/ウェブサイトタップ | アカウント単位合計 | 日次・月次 |
 
-## Learn More
+> 完了判定 (MVP)   上記 2 つの主要 KPI が指定期間でグラフ表示できること。
+> 
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. 利用者・ユーザーシナリオ
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **利用者:** 社内マーケター
+- **シナリオ:**
+    1. 上部の期間ボタンで「YYYY/MM」や「過去 30 日」を選択
+    2. 折れ線グラフでフォロワー推移を確認
+    3. バー＋ライン複合グラフでエンゲージメント率を把握
+    4. 気になる日付をクリック → 該当日の投稿一覧とポストインサイトをドリルダウン
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 4. 機能要件
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| 番号 | 機能 | 詳細 |
+| --- | --- | --- |
+| F‑1 | アカウント登録 | Facebook ID・IG ID・長期アクセストークンを管理者が登録 |
+| F‑2 | バッチ取得 | **日次 1 回** `getAccountInsights*` 実行（100 ID並列） |
+| F‑3 | 月次ポスト集計 | 毎月 1 日、前月分ポストを `listPosts` → `getPostInsights` |
+| F‑4 | データ保管 | PostgreSQL に 3 テーブル（company, account_insights, post_insights） |
+| F‑5 | 可視化 UI | 年間／月間ダッシュボード、期間切替ボタン |
+| F‑6 | リバックフィル | 管理画面から任意期間を再取得（手動トリガ） |
+| F‑7 | Token 更新 | 有効期限 60 日毎に自動リフレッシュ（Cron＋Meta API） |
+
+---
+
+### 5. データ取得要件
+
+| 項目 | 内容 |
+| --- | --- |
+| 対象アカウント | 最大 **100 ID** |
+| アカウントインサイト | 24 hごと（00:30 JST 頃） |
+| ポストインサイト | 毎月 1 回、対象月の全投稿を 30 日分取得 |
+| レート制限 | 1 秒あたり 10 call 以内＋指数バックオフ／リトライ 3 回 |
+| トークン更新 | Graph API `/{app‑id}/access_token` をバックエンドで自動実行 |
+
+---
+
+### 6. データ設計（高粒度）
+
+| テーブル | 主キー | 主な列 | 備考 |
+| --- | --- | --- | --- |
+| `companies` | company_id | name, memo | 将来のマルチテナント拡張を想定 |
+| `account_insights` | company_id + ig_id + date | followers, follows, reach_total, impressions, profile_visits, web_taps, likes_total, comments_total, saves_total, shares_total | 日次 |
+| `post_insights` | ig_media_id | ig_id, timestamp, media_type, caption, impressions, reach, likes, comments, saves, shares, views | 月次挿入 |
+
+> 集計テーブル（例: monthly_account_summary）は v1.1 で追加予定。
+> 
+
+---
+
+### 7. UI 要件
+
+- **フレームワーク:** Next.js (app router) + TypeScript + TailwindCSS
+- **グラフライブラリ:** Recharts（候補）
+- **画面構成**
+    - 年間ダッシュボード
+        - 上段: 月次サマリ表
+        - 左下: フォロワー＆フォロー折れ線
+        - 右下: インプレッション線 + エンゲージメント積み上げ棒
+    - 月間ダッシュボード
+        - 左: 日別サマリ表
+        - 右: 4 つの折れ線グラフ（フォロワー増減 / インプレ・リーチ / プロフィール / Webタップ）
+- **期間切替ボタン:** 直近 30 日・当月・前月・カスタム（Date Picker）
+
+---
+
+### 8. 非機能要件
+
+| 区分 | 要件 |
+| --- | --- |
+| 性能 | 100 アカウント × 1 年分のインサイトを 3 秒以内に描画 |
+| 可用性 | バッチ失敗率 < 0.1 % / 月 |
+| 保守性 | 環境変数管理は `.env`、Terraform で IaC（将来） |
+| セキュリティ | IG/Twitter 等のトークンは暗号化保存（PostgreSQL pgcrypto） |
+| バックアップ | DB 自動スナップショット 1 日 1 回、保持 30 日 |
+
+---
+
+### 9. 制約・前提
+
+- Meta Graph API の利用規約およびレート制限に従うこと
+- 社内利用のため SSO や外部ユーザー管理は後続フェーズで実装
+- インサイト指標の算出ロジックは Meta 公式ドキュメントを優先
+
+---
+
+### 10. ロードマップ（高レベル）
+
+| フェーズ | 期間 | 成果物 |
+| --- | --- | --- |
+| 要件定義 | ‑ | **本書** |
+| 基本設計 | +1 週 | 技術基本設計書、ER 図、API 設計 |
+| 実装 Sprint 1 | +2 週 | バッチ取得・DB 実装 |
+| 実装 Sprint 2 | +2 週 | 年間ダッシュボード |
+| 実装 Sprint 3 | +2 週 | 月間ダッシュボード／リバックフィル |
+| 内部テスト → MVPリリース | +1 週 | v0 公開 |
+
+---

@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id              String           @id @default(uuid())
+  name            String
+  memo            String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  igId            String           @unique
+  longToken       String
+  accountInsights AccountInsight[]
+  postInsights    PostInsight[]
+
+  @@map("companies")
+}
+
+model AccountInsight {
+  id               String   @id @default(uuid())
+  companyId        String
+  igId             String
+  date             DateTime
+  followers        Int
+  follows          Int
+  reachTotal       Int
+  impressions      Int
+  profileVisits    Int
+  webTaps          Int
+  likesTotal       Int
+  commentsTotal    Int
+  savesTotal       Int
+  sharesTotal      Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  adComments       Int      @default(0)
+  adLikes          Int      @default(0)
+  adReach          Int      @default(0)
+  adSaves          Int      @default(0)
+  adShares         Int      @default(0)
+  carouselComments Int      @default(0)
+  carouselLikes    Int      @default(0)
+  carouselReach    Int      @default(0)
+  carouselSaves    Int      @default(0)
+  carouselShares   Int      @default(0)
+  feedComments     Int      @default(0)
+  feedLikes        Int      @default(0)
+  feedReach        Int      @default(0)
+  feedSaves        Int      @default(0)
+  feedShares       Int      @default(0)
+  posts            Int      @default(0)
+  reachFollower    Int      @default(0)
+  reachNonFollower Int      @default(0)
+  reachUnknown     Int      @default(0)
+  reelComments     Int      @default(0)
+  reelLikes        Int      @default(0)
+  reelReach        Int      @default(0)
+  reelSaves        Int      @default(0)
+  reelShares       Int      @default(0)
+  storyComments    Int      @default(0)
+  storyLikes       Int      @default(0)
+  storyReach       Int      @default(0)
+  storySaves       Int      @default(0)
+  storyShares      Int      @default(0)
+  company          Company  @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, igId, date])
+  @@map("account_insights")
+}
+
+model PostInsight {
+  id               String   @id
+  companyId        String
+  igId             String
+  timestamp        DateTime
+  mediaType        String
+  mediaProductType String
+  caption          String?
+  mediaUrl         String
+  thumbnailUrl     String?
+  permalink        String
+  reach            Int
+  likes            Int
+  comments         Int
+  saved            Int
+  shares           Int
+  plays            Int?
+  replies          Int?
+  engagement       Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  company          Company  @relation(fields: [companyId], references: [id])
+
+  @@map("post_insights")
+}
